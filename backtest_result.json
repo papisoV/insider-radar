@@ -1,0 +1,247 @@
+{
+ "windows": {
+  "5": {
+   "n_screened": 68,
+   "screened_mean_pct": -0.772,
+   "control_mean_pct": -0.162,
+   "control_p05": -4.325,
+   "control_p95": 3.877,
+   "screened_percentile_in_control": 0.4226,
+   "verdict": "NO-GO",
+   "per_day": {
+    "2026-09-16": {
+     "n_universe": 60,
+     "n_screened": 14,
+     "screened_mean": 0.6299430105142317,
+     "universe_mean": 1.5020936595392367,
+     "n_screened_total": 15,
+     "coverage_screened": 0.933,
+     "coverage_universe": 0.984
+    },
+    "2026-09-17": {
+     "n_universe": 44,
+     "n_screened": 11,
+     "screened_mean": 0.22652628866518168,
+     "universe_mean": 0.7250193665757874,
+     "n_screened_total": 11,
+     "coverage_screened": 1.0,
+     "coverage_universe": 1.0
+    },
+    "2026-09-18": {
+     "n_universe": 33,
+     "n_screened": 9,
+     "screened_mean": -3.276722870763875,
+     "universe_mean": -1.036355592168288,
+     "n_screened_total": 9,
+     "coverage_screened": 1.0,
+     "coverage_universe": 0.971
+    },
+    "2026-09-21": {
+     "n_universe": 34,
+     "n_screened": 7,
+     "screened_mean": 0.9393181171511701,
+     "universe_mean": 2.1391665161059223,
+     "n_screened_total": 9,
+     "coverage_screened": 0.778,
+     "coverage_universe": 0.944
+    },
+    "2026-09-22": {
+     "n_universe": 40,
+     "n_screened": 7,
+     "screened_mean": -0.12608165219483586,
+     "universe_mean": -1.6387177730077371,
+     "n_screened_total": 7,
+     "coverage_screened": 1.0,
+     "coverage_universe": 0.976
+    },
+    "2026-09-23": {
+     "n_universe": 34,
+     "n_screened": 8,
+     "screened_mean": 1.3965956919722144,
+     "universe_mean": -0.08256640383745294,
+     "n_screened_total": 9,
+     "coverage_screened": 0.889,
+     "coverage_universe": 0.944
+    },
+    "2026-09-24": {
+     "n_universe": 25,
+     "n_screened": 6,
+     "screened_mean": 1.8484612623806653,
+     "universe_mean": -0.7732807068101557,
+     "n_screened_total": 6,
+     "coverage_screened": 1.0,
+     "coverage_universe": 1.0
+    },
+    "2026-09-25": {
+     "n_universe": 25,
+     "n_screened": 6,
+     "screened_mean": -10.38119883518649,
+     "universe_mean": -2.309807744187753,
+     "n_screened_total": 6,
+     "coverage_screened": 1.0,
+     "coverage_universe": 1.0
+    }
+   }
+  },
+  "10": {
+   "n_screened": 68,
+   "screened_mean_pct": -1.727,
+   "control_mean_pct": -0.457,
+   "control_p05": -6.122,
+   "control_p95": 8.26,
+   "screened_percentile_in_control": 0.4754,
+   "verdict": "NO-GO",
+   "per_day": {
+    "2026-09-16": {
+     "n_universe": 60,
+     "n_screened": 14,
+     "screened_mean": -2.2291490162410237,
+     "universe_mean": 0.19384345086142096,
+     "n_screened_total": 15,
+     "coverage_screened": 0.933,
+     "coverage_universe": 0.984
+    },
+    "2026-09-17": {
+     "n_universe": 44,
+     "n_screened": 11,
+     "screened_mean": -2.007168338684888,
+     "universe_mean": -0.02060652883156129,
+     "n_screened_total": 11,
+     "coverage_screened": 1.0,
+     "coverage_universe": 1.0
+    },
+    "2026-09-18": {
+     "n_universe": 33,
+     "n_screened": 9,
+     "screened_mean": -2.580459662652702,
+     "universe_mean": -3.700394420805919,
+     "n_screened_total": 9,
+     "coverage_screened": 1.0,
+     "coverage_universe": 0.971
+    },
+    "2026-09-21": {
+     "n_universe": 34,
+     "n_screened": 7,
+     "screened_mean": 1.5742762838915492,
+     "universe_mean": 4.991824334271554,
+     "n_screened_total": 9,
+     "coverage_screened": 0.778,
+     "coverage_universe": 0.944
+    },
+    "2026-09-22": {
+     "n_universe": 40,
+     "n_screened": 7,
+     "screened_mean": -0.39987937572076443,
+     "universe_mean": -1.952297414901698,
+     "n_screened_total": 7,
+     "coverage_screened": 1.0,
+     "coverage_universe": 0.976
+    },
+    "2026-09-23": {
+     "n_universe": 34,
+     "n_screened": 8,
+     "screened_mean": -1.5067166928000468,
+     "universe_mean": -1.0886534197012143,
+     "n_screened_total": 9,
+     "coverage_screened": 0.889,
+     "coverage_universe": 0.944
+    },
+    "2026-09-24": {
+     "n_universe": 25,
+     "n_screened": 6,
+     "screened_mean": 5.069935360003222,
+     "universe_mean": 0.3409684426594463,
+     "n_screened_total": 6,
+     "coverage_screened": 1.0,
+     "coverage_universe": 1.0
+    },
+    "2026-09-25": {
+     "n_universe": 25,
+     "n_screened": 6,
+     "screened_mean": -11.250797978669747,
+     "universe_mean": -2.5569792399937956,
+     "n_screened_total": 6,
+     "coverage_screened": 1.0,
+     "coverage_universe": 1.0
+    }
+   }
+  },
+  "15": {
+   "n_screened": 41,
+   "screened_mean_pct": -0.882,
+   "control_mean_pct": 0.935,
+   "control_p05": -5.92,
+   "control_p95": 28.689,
+   "screened_percentile_in_control": 0.5865,
+   "verdict": "NO-GO",
+   "per_day": {
+    "2026-09-16": {
+     "n_universe": 60,
+     "n_screened": 14,
+     "screened_mean": -2.6146367878155563,
+     "universe_mean": 0.24686478917594049,
+     "n_screened_total": 15,
+     "coverage_screened": 0.933,
+     "coverage_universe": 0.984
+    },
+    "2026-09-17": {
+     "n_universe": 44,
+     "n_screened": 11,
+     "screened_mean": -2.4695061851192897,
+     "universe_mean": -0.4991384420812813,
+     "n_screened_total": 11,
+     "coverage_screened": 1.0,
+     "coverage_universe": 1.0
+    },
+    "2026-09-18": {
+     "n_universe": 33,
+     "n_screened": 9,
+     "screened_mean": -2.1019432597497945,
+     "universe_mean": -3.459002650437506,
+     "n_screened_total": 9,
+     "coverage_screened": 1.0,
+     "coverage_universe": 0.971
+    },
+    "2026-09-21": {
+     "n_universe": 33,
+     "n_screened": 7,
+     "screened_mean": 6.647603451924942,
+     "universe_mean": 7.29264315085281,
+     "n_screened_total": 9,
+     "coverage_screened": 0.778,
+     "coverage_universe": 0.917
+    }
+   }
+  },
+  "20": {
+   "n_screened": 13,
+   "screened_mean_pct": -1.375,
+   "control_mean_pct": -0.79,
+   "control_p05": -5.677,
+   "control_p95": 4.453,
+   "screened_percentile_in_control": 0.433,
+   "verdict": "NO-GO",
+   "per_day": {
+    "2026-09-16": {
+     "n_universe": 58,
+     "n_screened": 13,
+     "screened_mean": -1.3750766371733723,
+     "universe_mean": -0.8832932819296637,
+     "n_screened_total": 15,
+     "coverage_screened": 0.867,
+     "coverage_universe": 0.951
+    }
+   }
+  }
+ },
+ "meta": {
+  "seed": 20261006,
+  "draws": 2000,
+  "min_notional": 100000,
+  "push_percentile": 0.75,
+  "missing": {
+   "no_price_data": 28,
+   "window_in_future_or_gap": 362
+  }
+ }
+}

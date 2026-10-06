@@ -8,3 +8,6 @@ poll-*.json
 .omc/
 
 filter_selftest.txt
+
+# scratch output dir used by the CLI defaults and by backtest.py/diagnose.py
+tmpW100/

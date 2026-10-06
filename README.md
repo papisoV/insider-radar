@@ -1,11 +1,18 @@
 # Insider Radar
 
-**Read every SEC Form 4 filed today, and print the handful that aren't noise.**
+**Read every SEC Form 4 filed today, and print the handful worth looking at.**
 
 The SEC publishes ~530 insider-transaction filings per trading day. About 1 in
-10 contains an actual purchase. This reads all of them, throws away what you
-can't act on, and renders the rest as a short list — with the reason each one
-made the cut.
+10 contains an actual purchase. This reads all of them, drops what you can't
+act on, and renders the rest as a short list — with the reason each one is
+there.
+
+What it does not do is pick winners. I measured whether the ranking selects
+anything better than random, and it doesn't — see
+[Does the screen work?](#does-the-screen-work-measured-no). The value here is
+that nobody reads 530 filings; that's arithmetic, and it holds. Sorting by
+size is a reasonable way to order a list, not a reason to expect the top of
+it to outperform.
 
 Free data, no API key, no account, standard library only.
 
@@ -55,7 +62,13 @@ Nobody reads 528 filings. And if you push all 52 purchases, you are pushing
 noise — the other ~475 filings that day are sales, grants, option exercises and
 tax withholding, which say nothing about conviction.
 
-So the filter *is* the product. Getting the data is a `urllib` call.
+So the filter is the whole job. Getting the data is a `urllib` call. Sorting it
+is where the work is.
+
+**One caveat, stated up front because it's the interesting part:** the filter
+reduces volume. It does not, as measured, improve selection. See
+[Does the screen work?](#does-the-screen-work-measured-no) — that section is
+the reason this README has a results table instead of a claim.
 
 ### The daily rate is not stable
 
@@ -93,7 +106,7 @@ because my first design assumed the opposite.
 ```bash
 git clone https://github.com/papisoV/insider-radar.git
 cd insider-radar
-python test_insider_filter.py      # 51 assertions, no dependencies
+python test_insider_filter.py      # 52 assertions, no dependencies
 ```
 
 Python 3.8+. No `pip install` needed — standard library only.
@@ -129,7 +142,88 @@ fetch and parse; discovery and parsing are separate steps.
 | `render_radar.py` | Turn a signals JSON into the readable daily list. |
 | `run_20d.py` | Full-coverage multi-day run; source of the table above. |
 | `poll_hourly.py` | Poll recent days, write only newly seen filings. |
-| `test_insider_filter.py` | Self-test (51 assertions), no framework needed. |
+| `test_insider_filter.py` | Self-test (52 assertions), no framework needed. |
+| `collect_backtest.py` | Collect ticker-level purchases for backtesting. |
+| `backtest.py` | Does the screen beat random draws from the same day? |
+| `diagnose.py` | Separate "no effect" from "can't measure it". |
+| `backtest_buys.json` | The 405 purchases the result is computed from. |
+| `backtest_result.json` | The measured result, so you don't have to re-run it. |
+
+Reproduce the negative result:
+
+```bash
+python backtest.py     # writes tmpW100/backtest_result.json (needs network for prices)
+python diagnose.py     # writes tmpW100/diagnose.txt
+```
+
+---
+
+## Does the screen work? Measured. No.
+
+This is the part most projects don't publish. The ranking above is defensible
+as engineering — but I tested whether it actually selects better, and it does
+not.
+
+**Method** ([`backtest.py`](backtest.py), seed fixed at 20261006):
+
+- population: 405 P-code purchases across 8 trading days (2026-09-16 → 09-25),
+  collapsed per issuer
+- screened: the ones passing this repo's own gate (≥ \$100k and top quartile
+  of their day)
+- control: 2,000 random draws from **the same day**, same count, without the
+  screen — so any difference is the screen, not the day, the market, or the
+  sector
+- measure: forward return from filing date, T+5/10/15/20 calendar days
+- **pass threshold, fixed before seeing results**: screened mean must sit at
+  or above the 95th percentile of the control distribution
+
+**Result:**
+
+| Window | n | screened | control | percentile | verdict |
+| --- | --- | --- | --- | --- | --- |
+| T+5 | 68 | −0.77% | −0.16% | 0.42 | NO-GO |
+| T+10 | 68 | −1.73% | −0.46% | 0.48 | NO-GO |
+| T+15 | 41 | −0.88% | +0.94% | 0.59 | NO-GO |
+| T+20 | 13 | −1.38% | −0.79% | 0.43 | NO-GO |
+
+Four windows, four negatives, all below the control. Not "failed to clear
+0.95" — sitting in the bottom half.
+
+**Is that real, or just instrument noise?** [`diagnose.py`](diagnose.py) exists
+to separate those two answers, and the honest reading is *both*:
+
+```text
+return by notional bucket (T+5)     n     mean%   median%
+  (a) <$100k                      187     -0.05     -0.35
+  (b) $100k-$1M                    63     +0.66     +0.96
+  (c) >= $1M                       45     -0.37     -0.84
+  pooled                          295     +0.05%    -0.33%
+
+T+5:  screened beat same-day universe on 3 of 8 days
+T+10: screened beat same-day universe on 3 of 8 days
+
+T+5  n=68  effect=-0.61pp   control band (p05..p95)=8.2pp
+```
+
+Size does not order returns — the buckets are non-monotonic, and the middle
+bucket is the only positive one. The sign flips 5 days out of 8. And the
+control's own spread is 13x the measured effect, so at n=68 a 3pp effect is
+unmeasurable: it would take roughly **508 samples** to see it. That last point
+is the real limitation — 8 days cannot rule out a small edge, and I'm not
+going to claim it does. What 8 days *can* say is that nothing large is showing
+up, because a large effect would have cleared this bar easily.
+
+Two independent readings agree the underlying signal is near zero: pooled mean
+**+0.05%**, median −0.33% here, and InsiderWatch's public ledger at 619 graded
+alerts, 48% hit rate, −0.2% per call against the S&P.
+
+**So: the ranking is a convenience, not an edge.** What survives the
+measurement is that ~530 filings a day is more than a human will read. That is
+arithmetic, and it holds. "The filter is the product" was my claim and the
+data does not support it.
+
+Sorting by size is still a reasonable way to order a list. It is not a reason
+to believe the top of the list will outperform.
 
 ---
 
@@ -169,15 +263,19 @@ only the absolute floor applies.
 If nothing clears both conditions, the output says so:
 
 ```text
-Nothing worth watching today.
+Nothing above the threshold today.
 
   42 purchase filings seen; the largest was $84,200, below the
-  $100,000 floor. Relative to a typical day this is a quiet one.
+  $100,000 floor. Nothing here implies anything about tomorrow.
 ```
 
 Publishing "best of a dull day" is exactly how a filter becomes a noise
 source. Silence is the honest output — and it also tells the reader the screen
 is working rather than broken.
+
+The wording avoids calling a small day *bad*. The [backtest](#does-the-screen-work-measured-no)
+found no relation between deal size and forward return, so "quiet day" would be
+a judgement the data does not support.
 
 ### What gets dropped, and why
 
@@ -229,6 +327,12 @@ be asked to show the graded ledger — the one public ledger I know of shows
 - The 13-day sample spans a quarter boundary (2026-09-16 → 10-02), which is
   where the 10b5-1 wave showed up. Treat the averages as indicative of
   magnitude, not as a stable baseline.
+- The backtest sample is 8 days and capped at 150 filings/day, so it is a
+  sample, not full coverage: 405 purchases, 295 with prices. Prices come from
+  Yahoo's public chart endpoint, which is not adjusted for splits or dividends
+  in this code and returns nothing for 28 of the names — reported as
+  `coverage_screened` / `coverage_universe` per day in the result JSON (worst
+  case 0.78 / 0.94) rather than silently dropped.
 
 ## License
 

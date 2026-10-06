@@ -294,12 +294,18 @@ def render(signals, top):
         # dull day" is how a filter becomes a noise source; saying nothing is
         # the honest output, and it is also the signal that tells the reader
         # the screen is working rather than broken.
-        L.append("Nothing worth watching today.")
+        #
+        # Wording is deliberately neutral about whether a small day is BAD.
+        # The backtest found no relation between notional and forward return
+        # (bucket means: <$100k -0.05%, $100k-1M +0.66%, >=$1M -0.37%), so
+        # calling it "quiet" would imply a quality judgement the data does
+        # not support.
+        L.append("Nothing above the threshold today.")
         L.append("")
         L.append("  %d purchase filings seen; the largest was $%s, below the"
                  % (len(day_values),
                     "{:,.0f}".format(max(day_values) if day_values else 0)))
-        L.append("  $%s floor. Relative to a typical day this is a quiet one."
+        L.append("  $%s floor. Nothing here implies anything about tomorrow."
                  % "{:,.0f}".format(MIN_NOTIONAL_USD))
         L.append("")
         return "\n".join(L)

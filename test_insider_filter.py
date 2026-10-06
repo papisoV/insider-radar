@@ -205,11 +205,16 @@ def main():
             for i in range(20)]
     dull = [x for x in dull if x]
     out = R.render(dull, top=5)
-    check("dull day prints empty state", "Nothing worth watching" in out,
+    check("dull day prints empty state", "Nothing above the threshold" in out,
           out.replace("\n", " | ")[:150])
     check("empty state reports the largest seen", "15,000" in out,
           out.replace("\n", " | ")[:150])
     check("empty state emits no ranking", "#1" not in out)
+    # Wording must not imply a dull day forecasts anything. The backtest found
+    # no relation between notional and forward return, so the copy is checked
+    # against claiming the day was bad.
+    check("empty state makes no quality claim",
+          "quiet" not in out.lower(), out.replace("\n", " | ")[:150])
 
     # 17. RELATIVE ranking. Same dollar amount must rank differently depending
     # on the day it sits in. $400k is the top of a $150-500k day but merely
