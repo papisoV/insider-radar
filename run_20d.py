@@ -132,6 +132,10 @@ def main():
     ap.add_argument("--out", default="tmpW100/daily20.json")
     a = ap.parse_args()
 
+    out_dir = os.path.dirname(a.out)
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
     out = []
     end = date.today()
     for i in range(a.days, 0, -1):

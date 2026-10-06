@@ -376,6 +376,11 @@ def main():
     for p in paths:
         sigs.extend(json.load(io.open(p, encoding="utf-8")))
     txt = render(sigs, a.top)
+    # The default --out lives in the scratch dir, which does not exist on a
+    # fresh clone. Create it rather than crash on the documented happy path.
+    out_dir = os.path.dirname(a.out)
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
     io.open(a.out, "w", encoding="utf-8").write(txt)
     print(txt)
     print("[render] %d signals -> %s" % (len(sigs), a.out))
