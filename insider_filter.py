@@ -1,13 +1,22 @@
-"""The product layer: turn parsed Form 4 filings into ranked insider-buy signals.
+"""The product layer: turn parsed Form 4 filings into ranked insider purchases.
 
-W99: data is free and open, and free incumbents (OpenInsider) already cover
-"can look it up". The only thing worth paying for is the SCREEN. This is it.
+W99 thought the only thing worth paying for was the SCREEN. That was then
+tested and it is false - see README "Does the screen work? Measured. No.":
+the ranking did not beat same-day random draws at T+5/10/15/20. What this
+layer actually does is reduce ~530 filings/day to the handful with real money
+in them, which saves reading time and nothing else.
 
-Why a screen is needed (measured, 45 filings / 184 transactions, 2026-10-06):
+Wording follows from that. Never "signal", "alert", "pick", "worth watching",
+"conviction" - each implies the reader should act on being told, which is the
+claim the measurement failed to support. Say what is IN the filing.
+
+Why ANY screen is needed (measured, 45 filings / 184 transactions, 2026-10-06):
     code distribution: S 105 / F 32 / C 18 / P 11 / J 9 / M 8 / A 1
     filing level    : BUY 5 / SELL 21 / neutral 19   ->  buy : rest ~= 1 : 8
-So pushing everything is pushing noise. Only P (purchase) is
+So pushing everything is pushing noise: ~9 in 10 filings are sales, grants,
+exercises and tax withholding, not money going in. Only P (purchase) is
 "their own money buying". S is often routine 10b5-1. F/M/A/C/J say nothing.
+This filters by VOLUME, not by quality.
 
 Scoring model (all weights are explicit constants, no magic inline numbers):
     notional   = shares * price            (missing price -> unvaluable, kept
@@ -220,7 +229,7 @@ def rank(signals):
             if s["notional_usd"] is not None:
                 why.append("$%s purchase (SEC code P)" % f"{s['notional_usd']:,.0f}")
             else:
-                why.append("buy, price undisclosed in filing")
+                why.append("purchase, price undisclosed in filing")
             if s["is_ten_pct_owner"]:
                 why.append("10% owner")
             if s["is_director"]:
@@ -319,16 +328,17 @@ def main():
         signals, total = from_live(a.days, a.limit, a.pages)
         scanned = "%d filings / %dd" % (total, a.days)
 
-    print("[filter] scanned=%s -> %d purchase signals" % (scanned, len(signals)))
+    print("[filter] scanned=%s -> %d filings with a purchase"
+          % (scanned, len(signals)))
     blocks = [s for s in signals if s["tier"] == "BLOCKBUSTER"]
     notable = [s for s in signals if s["tier"] == "NOTABLE"]
     routine = [s for s in signals if s["tier"] == "ROUTINE"]
     cut = round(100 * (total - len(signals)) / total) if total else 0
     unlisted = [s for s in signals if not s.get("listed", True)]
-    print("[filter] BLOCKBUSTER=%d NOTABLE=%d ROUTINE=%d  (noise cut: %d%%)"
+    print("[filter] BLOCKBUSTER=%d NOTABLE=%d ROUTINE=%d  (volume cut: %d%%)"
           % (len(blocks), len(notable), len(routine), cut))
     if unlisted:
-        print("[filter] %d signals have no tradeable ticker (N/A, NONE) -> "
+        print("[filter] %d purchases have no tradeable ticker (N/A, NONE) -> "
               "hidden by default" % len(unlisted))
     print()
     n = render(signals, a.min_notional, a.show_all)

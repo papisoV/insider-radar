@@ -7,8 +7,16 @@ Wording is load-bearing here, not cosmetics:
   * Never state or imply a win rate. InsiderWatch publishes its own ledger:
     619 graded alerts, 48% hit rate, -0.2%/call vs the S&P. Anyone claiming
     "high win rate" gets refuted by public numbers.
-    Allowed: "worth watching", "why this filing stands out".
-    Banned: buy / sell / target / win rate / guaranteed alpha.
+  * AFTER THE BACKTEST (2026-10-06, seed 20261006) the bar is stricter still:
+    the ranking was measured against same-day random draws and did NOT beat
+    them at T+5/10/15/20. So the output must not imply SELECTION quality
+    either - not just returns.
+    Allowed:  "Why it stands out" (a fact about the filing vs the others
+              today), "largest .. seen today", plain counts and dates.
+    Banned:   "worth watching"/"conviction"/"smart money"/"alert"/"pick"/
+              "signal" - each implies the reader should act on being told,
+              which is exactly the claim the measurement failed to support.
+              Also banned: buy / sell / target / win rate / alpha.
   * China: selling signals or alpha subscriptions crosses the illegal
     investment-advisory line. This renders public filing facts only.
 
@@ -285,8 +293,9 @@ def render(signals, top):
     L = []
     L.append("TODAY'S INSIDER RADAR")
     L.append("")
-    L.append("Public SEC Form 4 filings. Selection and context only -")
-    L.append("not investment advice, not a recommendation, no performance claim.")
+    L.append("Public SEC Form 4 filings. Sorted by size within the day -")
+    L.append("not advice, not a recommendation, not a prediction.")
+    L.append("Measured: this ordering does not beat random - see README.")
     L.append("")
 
     if not ordered:
@@ -313,9 +322,10 @@ def render(signals, top):
     # Tell the reader how the day compares, so "3 items" is not read as
     # "3 items every day". Uses absolute tiers, which are stable and
     # comparable across days even though ranking itself is relative.
-    L.append("  %d purchase filings today. Ranked within the day%s."
-             % (len(day_values),
-                "" if use_pct else " (small sample - absolute order)"))
+    L.append("  %d purchase filings today. Largest first, ranked within the"
+             % len(day_values))
+    L.append("  day%s. Sorted by size - not by expected outcome."
+             % ("" if use_pct else " (small sample - absolute order)"))
     L.append("")
     for i, g in enumerate(ordered[:top], 1):
         s, score, cluster = g["s"], g["score"], g["cluster"]
@@ -335,12 +345,13 @@ def render(signals, top):
             L.append("    %d distinct insiders, $%s total"
                      % (len(g["distinct"]), "{:,.0f}".format(g["total"])))
         L.append("")
-        L.append("    Why it stands out:")
+        L.append("    Why it stands out today:")
         for w in why_lines(s, len(g["distinct"])):
             L.append("      - %s" % w)
         if g["also"]:
-            L.append("    Also filed by: %s" % ", ".join(
-                (x.get("insider") or "")[:24] for x in g["also"][:4]))
+            L.append("    Other insiders filing on %s today: %s"
+                     % (s.get("ticker") or "this issuer", ", ".join(
+                         (x.get("insider") or "")[:24] for x in g["also"][:4])))
         if s.get("period"):
             L.append("    Trade date: %s   Filed: %s"
                      % (s.get("period"), s.get("filed") or ""))

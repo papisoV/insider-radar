@@ -1,26 +1,26 @@
 # Insider Radar
 
-**Read every SEC Form 4 filed today, and print the handful worth looking at.**
+**Read every SEC Form 4 filed today, and print the handful with real money in them.**
 
 The SEC publishes ~530 insider-transaction filings per trading day. About 1 in
-10 contains an actual purchase. This reads all of them, drops what you can't
-act on, and renders the rest as a short list — with the reason each one is
-there.
+10 contains an actual purchase. This reads all of them, drops what isn't a
+purchase, and renders the rest as a short list — largest first, with what the
+filing actually says.
 
-What it does not do is pick winners. I measured whether the ranking selects
-anything better than random, and it doesn't — see
-[Does the screen work?](#does-the-screen-work-measured-no). The value here is
-that nobody reads 530 filings; that's arithmetic, and it holds. Sorting by
-size is a reasonable way to order a list, not a reason to expect the top of
-it to outperform.
+It does not pick winners, and it does not tell you what to do. I measured
+whether the ranking selects anything better than random and it doesn't — see
+[Does the screen work?](#does-the-screen-work-measured-no). What survives that
+measurement is arithmetic: nobody reads 530 filings. That's a time saving and
+nothing more, and the wording in the output is built to say exactly that much
+and no more ([why that matters](#tone-is-load-bearing)).
 
 Free data, no API key, no account, standard library only.
 
 ```
 $ python insider_filter.py --days 1 --limit 600 --pages 8 --json signals.json
 [efts] 626 unique filings (offsets walked: 6)
-[filter] scanned=300 filings / 1d -> 5 purchase signals
-[filter] BLOCKBUSTER=0 NOTABLE=0 ROUTINE=5  (noise cut: 98%)
+[filter] scanned=300 filings / 1d -> 4 filings with a purchase
+[filter] BLOCKBUSTER=2 NOTABLE=0 ROUTINE=2  (volume cut: 99%)
 
 $ python render_radar.py --in signals.json --top 5
 ```
@@ -28,22 +28,28 @@ $ python render_radar.py --in signals.json --top 5
 ```text
 TODAY'S INSIDER RADAR
 
-Public SEC Form 4 filings. Selection and context only -
-not investment advice, not a recommendation, no performance claim.
+Public SEC Form 4 filings. Sorted by size within the day -
+not advice, not a recommendation, not a prediction.
+Measured: this ordering does not beat random - see README.
 
-#1  LND
-    BrasilAgro - Brazilian Agricultural Real Estate Co
-    $199,696
-    Elsztain Alejandro Gustavo
+  4 purchase filings today. Largest first, ranked within the
+  day (small sample - absolute order). Sorted by size - not by expected outcome.
 
-    Why it stands out:
-      - $199,696 purchase (SEC code P)
-      - director
-    Trade date: 2026-09-30   Filed: 2026-10-05
-    SEC filing: https://www.sec.gov/Archives/edgar/data/2119764/000211976426000030/section16.xml
+#1  AVR
+    Anteris Technologies Global Corp.
+    $6,708,731  [BLOCKBUSTER]
+    L1 Capital Pty Ltd
+
+    Why it stands out today:
+      - $6,708,731 purchase (SEC code P)
+      - 10% owner
+    Trade date: 2026-10-02   Filed: 2026-10-06
+    SEC filing: https://www.sec.gov/Archives/edgar/data/1817646/000181764626000029/primary_doc.xml
 ```
 
-That's it. One issuer per line, why it's interesting, link to the source.
+One issuer per line, what's in the filing, link to the source. Nothing else —
+see [Tone is load-bearing](#tone-is-load-bearing) for why there's no verdict
+attached.
 
 ---
 
@@ -60,10 +66,10 @@ The data is public and free. Reading it is the hard part.
 
 Nobody reads 528 filings. And if you push all 52 purchases, you are pushing
 noise — the other ~475 filings that day are sales, grants, option exercises and
-tax withholding, which say nothing about conviction.
+tax withholding.
 
-So the filter is the whole job. Getting the data is a `urllib` call. Sorting it
-is where the work is.
+Getting the data is a `urllib` call. Cutting 528 down to the few with real
+money in them is the work, and that part is real.
 
 **One caveat, stated up front because it's the interesting part:** the filter
 reduces volume. It does not, as measured, improve selection. See
@@ -106,7 +112,7 @@ because my first design assumed the opposite.
 ```bash
 git clone https://github.com/papisoV/insider-radar.git
 cd insider-radar
-python test_insider_filter.py      # 52 assertions, no dependencies
+python test_insider_filter.py      # 57 assertions, no dependencies
 ```
 
 Python 3.8+. No `pip install` needed — standard library only.
@@ -138,11 +144,11 @@ fetch and parse; discovery and parsing are separate steps.
 | --- | --- |
 | `form4_parse.py` | Fetch one filing URL, parse the XML, print the transaction legs. |
 | `form4_pipeline.py` | Discover filings by day/form via EFTS, build filing URLs. |
-| `insider_filter.py` | Discover + parse + filter to purchase signals, emit JSON. |
+| `insider_filter.py` | Discover + parse, keep only purchases, emit JSON. |
 | `render_radar.py` | Turn a signals JSON into the readable daily list. |
 | `run_20d.py` | Full-coverage multi-day run; source of the table above. |
 | `poll_hourly.py` | Poll recent days, write only newly seen filings. |
-| `test_insider_filter.py` | Self-test (52 assertions), no framework needed. |
+| `test_insider_filter.py` | Self-test (57 assertions), no framework needed. |
 | `collect_backtest.py` | Collect ticker-level purchases for backtesting. |
 | `backtest.py` | Does the screen beat random draws from the same day? |
 | `diagnose.py` | Separate "no effect" from "can't measure it". |
@@ -227,6 +233,33 @@ to believe the top of the list will outperform.
 
 ---
 
+## Tone is load-bearing
+
+Once the screen was measured and failed, a whole class of wording became
+unavailable — not because it's impolite, but because it asserts something the
+data contradicts.
+
+| Banned | Why it's out |
+| --- | --- |
+| "worth watching" | Says *you should look at this because we chose it*. That's the selection claim. |
+| "conviction" | An inference about motive. The filing shows a transaction, not a state of mind. |
+| "smart money" | A performance claim wearing a compliment. |
+| "alert" / "pick" / "signal" | Each implies act-on-being-told. This is a sorted list. |
+| "quiet day" | Implies a small day forecasts less. The buckets say size doesn't order returns. |
+
+What's left is what the filing actually contains: amount, SEC code, role, who,
+trade date, filing date, URL. That's why each entry says "Why it stands out
+**today**" — stands out against the other filings that day, which is a fact
+about the list, not a bet about the future.
+
+This isn't left to discipline. `test_insider_filter.py` renders real output and
+asserts none of those words appear (13 checks), because "we wrote it down in
+CLAUDE.md" is not how code stays converted. Every one of those strings was in
+the output before the measurement; each is there because it was true-looking
+and got removed when it stopped being supported.
+
+---
+
 ## How ranking works
 
 Two separate decisions: **what order**, and **whether to show it at all**.
@@ -275,7 +308,7 @@ is working rather than broken.
 
 The wording avoids calling a small day *bad*. The [backtest](#does-the-screen-work-measured-no)
 found no relation between deal size and forward return, so "quiet day" would be
-a judgement the data does not support.
+a judgement the data does not support. Held by a test, not by intention.
 
 ### What gets dropped, and why
 
@@ -295,11 +328,15 @@ not because it seemed sensible in advance:
 
 ## What this is not
 
-**Not investment advice.** No buy/sell language, no price targets.
+**Not investment advice.** No buy/sell language, no price targets, and nothing
+that tells you what to do with a filing. The output is descriptions of public
+documents.
 
-**No performance claim.** The tool publishes no win rate and the wording stays
-at "worth watching". Anyone claiming a high win rate on insider filings should
-be asked to show the graded ledger — the one public ledger I know of shows
+**No performance claim, and now no selection claim either.** It publishes no
+win rate, and it doesn't say "worth watching" — after the measurement, that
+phrase would assert exactly what failed. See [Tone is load-bearing](#tone-is-load-bearing).
+Anyone claiming a high win rate on insider filings should be asked to show the
+graded ledger — the one public ledger I know of shows
 [619 graded alerts at a 48% hit rate](https://www.insiderwatch.com/), and
 −0.2% per call against the S&P.
 

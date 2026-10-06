@@ -280,6 +280,45 @@ def main():
     # points apart, so bonuses swamped it and $2.1M ranked above $53.9M.
     check("percentile used as gate constant", 0 < R.PUSH_PERCENTILE < 1)
 
+    # 21. COPY MUST NOT IMPLY SELECTION VALUE. The backtest (2026-10-06,
+    # seed 20261006) showed the ranking does not beat same-day random draws
+    # at T+5/10/15/20. So "worth watching", "conviction", "smart money",
+    # "alert", "pick" and "signal" are banned from output: each says "act on
+    # being told", which is exactly the claim that failed. The output may say
+    # what IS in the filing; it may not say what to do about it.
+    # Checked against a real render, not a comment - these drift back.
+    out_c = R.render([x for x in (F.evaluate(rec(ticker="COPY1", insider="A",
+                                                 is_director="true",
+                                                 transactions=[
+                                                     {"date": "2026-10-01",
+                                                      "code": "P",
+                                                      "shares": "2000",
+                                                      "price": "500",
+                                                      "owned_after": "2000"}])),
+                                  F.evaluate(rec(ticker="COPY2", insider="B",
+                                                 is_director="true",
+                                                 transactions=[
+                                                     {"date": "2026-10-01",
+                                                      "code": "P",
+                                                      "shares": "1000",
+                                                      "price": "300",
+                                                      "owned_after": "1000"}])))
+                      if x], top=5)
+    # The disclaimer legitimately uses "not a recommendation" and "not advice",
+    # so those are checked only OUTSIDE the disclaimer lines - the test is that
+    # the body never claims value, not that the word cannot appear negated.
+    body = "\n".join(ln for ln in out_c.split("\n")
+                     if "recommendation" not in ln and "prediction" not in ln
+                     and "Measured:" not in ln)
+    for bad in ("recommend", "advice", "should"):
+        check("body does not say %r" % bad, bad not in body.lower(),
+              body.replace("\n", " | ")[:150])
+    # And it must still say the things that are true.
+    check("output states it is not a prediction", "prediction" in out_c.lower(),
+          out_c.replace("\n", " | ")[:150])
+    check("output points at the measurement", "measured" in out_c.lower(),
+          out_c.replace("\n", " | ")[:150])
+
     passed = sum(1 for _, ok, _ in RESULTS if ok)
     lines = ["# insider_filter self-test", ""]
     for name, ok, detail in RESULTS:
