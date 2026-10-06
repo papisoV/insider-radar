@@ -34,11 +34,42 @@ for _p in (_ROOT, _HERE):
 BLOCKBUSTER_USD = 1_000_000
 NOTABLE_USD = 250_000
 
-# A purchase below this is not news. Measured 2026-10-06 on 61 pooled
-# signals: the median P-code notional is $78k, so a $101 purchase is ~3
-# orders of magnitude below typical and was ranking #2 on role score alone.
-# Role score must not outrank money - see rank_key().
+# A purchase below this is not news, and no amount of relative ranking can
+# rescue it. Measured 2026-10-06 on 61 pooled signals: median P-code notional
+# is ~$78k, so this is a floor well below typical - it is not the filter, it
+# is the point at which "best of a bad day" becomes dishonest to publish.
 MIN_NOTIONAL_USD = 100_000
+
+# With fewer than this many purchase signals in the day, a percentile is
+# statistically meaningless (the top decile of 6 items is one item). Below
+# the threshold we fall back to absolute ordering and say so in the output.
+MIN_SIGNALS_FOR_PERCENTILE = 15
+
+# Corroboration bonus for multiple insiders filing on the same issuer.
+#
+# CAP IS LOAD-BEARING, not a tuning knob. One order of magnitude of notional
+# is worth 10 points (10 x log10). A bonus above 10 can therefore move an
+# issuer across a whole order of magnitude, which inverts the ranking: a
+# 3-insider $33M cluster (bonus 12.7) beat a single $157M filing (82.0 vs
+# 75.2 on the money term) even though the money gap was 4.7x.
+# So: capped at 4, which can never flip one order of magnitude.
+CLUSTER_BONUS_SCALE = 4.0
+CLUSTER_BONUS_MAX = 4.0
+
+# Same reasoning for role. A raw role score of 40 (CEO) versus 20 (director)
+# could move an issuer two orders of magnitude - measured live, a $2.1M CEO
+# buy outranked a $27.5M director buy. Role is a tiebreaker within a
+# magnitude, never a way to cross one.
+ROLE_SCORE_MAX = 6.0
+# ...and the raw role scale is 0..40, so this is the multiplier that maps it
+# onto the 0..ROLE_SCORE_MAX range.
+ROLE_CAP_PTS = ROLE_SCORE_MAX
+
+# Relative gate: on a rich day, mid-pack is not news. A filing must sit in
+# the top quarter of its own day's issuer totals to be pushed at all. Below
+# MIN_SIGNALS_FOR_PERCENTILE signals the day is too small for a percentile to
+# mean anything, and only the absolute floor applies.
+PUSH_PERCENTILE = 0.75
 
 # Fund share classes are not equities a user can act on. Nasdaq mutual-fund
 # symbols are 5 letters ending in X (XIVYX, ABCRX); CUSIP-like 9-char ids and
@@ -87,7 +118,10 @@ def role_score(title, is_director, is_ten_pct):
         pts = max(pts, 28)
     elif is_director:
         pts = max(pts, 20)
-    return pts
+    # Rescale to ROLE_SCORE_MAX. See ROLE_SCORE_MAX: role must never be worth
+    # an order of magnitude of notional, so the raw 0..40 scale has to be
+    # compressed before it enters the rank key.
+    return ROLE_CAP_PTS * (pts / 40.0) if pts else 0.0
 
 
 def why_lines(s, cluster_size):
@@ -136,58 +170,146 @@ def is_fresh(s, today=None):
     return (today - d).days <= MAX_TRADE_AGE_DAYS
 
 
+def _percentile_rank(values, v):
+    """Where `v` sits in `values`, 0.0 (smallest) .. 1.0 (largest).
+
+    Uses the midpoint convention: tied values share a rank, and the smallest
+    is not 0.0 so that "bottom of the day" is distinguishable from "no data".
+    """
+    if not values:
+        return 0.0
+    n = len(values)
+    below = sum(1 for x in values if x < v)
+    tied = sum(1 for x in values if x == v)
+    return (below + 0.5 * tied) / n
+
+
 def render(signals, top):
+    """-> text. Ranking is RELATIVE to the day, absolute only as a floor.
+
+    Why relative: the daily purchase rate swings 2.8%-20.3% (measured over
+    13 trading days, 6,872 filings). On 2026-10-02 there were 1502 filings
+    and only 42 buys - a quarter-boundary 10b5-1 wave. An absolute $250k
+    threshold behaves completely differently on a 42-buy day than on an
+    81-buy day, so "top N" by absolute dollars ships routine filings on quiet
+    days. Percentile-within-the-day is stable across both.
+
+    Why still absolute: percentile alone would happily promote the best of a
+    genuinely dull day. MIN_NOTIONAL_USD is the floor below which we print
+    nothing at all rather than pretend.
+    """
     from datetime import date
     today = date.today()
     signals = [s for s in signals
                if is_listed(s.get("ticker")) and is_fresh(s, today)]
+
     by_ticker = {}
     for s in signals:
-        by_ticker.setdefault(s.get("ticker") or "", []).append(s)
+        by_ticker.setdefault((s.get("ticker") or "").upper(), []).append(s)
 
-    ranked = []
+    # Collapse to ONE entry per issuer first: five directors of the same
+    # company buying on the same day is one story ("FUL insiders bought"),
+    # not five. Without this one clustered issuer eats the whole radar.
+    #
+    # This MUST happen before percentiles are computed. Ranking a collapsed
+    # total against a distribution of individual filings is a unit mismatch:
+    # it put a $157M issuer at #5 behind a $499k one, because the collapsed
+    # total was never in the population it was being compared against.
+    def cluster_bonus(n_insiders):
+        """LOG-scaled and capped corroboration bonus.
+
+        The 2nd insider filing on the same issuer is real corroboration; the
+        6th adds almost nothing over the 5th. Linear (15 x n) let a
+        5-director $499k cluster outrank a $33M single filing, because +60
+        exceeded the entire 0..100 percentile spread.
+        """
+        if n_insiders <= 1:
+            return 0.0
+        return min(CLUSTER_BONUS_MAX,
+                   CLUSTER_BONUS_SCALE * _math.log(n_insiders, 2))
+
+    grouped = {}
     for ticker, group in by_ticker.items():
         distinct = {s.get("insider") for s in group}
-        for s in group:
-            ranked.append((role_score(s.get("officer_title"),
-                                      s.get("is_director"),
-                                      s.get("is_ten_pct_owner"))
-                           + 15 * (len(distinct) - 1), s, len(distinct)))
-    # Role score alone is the WRONG primary key: it put a $101 purchase at #2
-    # (2026-10-06 live run) because the buyer was a President. Money is the
-    # signal; role only breaks ties. Log-scale the notional so a $50M buy does
-    # not flatten every other difference, then add role + cluster bonus.
-    def rank_key(item):
-        score, s, cluster = item
-        n = s.get("notional_usd") or 0
+        # Head of the group = the largest single filing: that is the one whose
+        # officer title and date we display.
+        head = max(group, key=lambda s: s.get("notional_usd") or 0)
+        grouped[ticker] = {
+            "s": head,
+            "also": [s for s in group if s is not head],
+            "total": sum(s.get("notional_usd") or 0 for s in group),
+            "distinct": distinct,
+            "score": role_score(head.get("officer_title"),
+                                head.get("is_director"),
+                                head.get("is_ten_pct_owner"))
+                     + cluster_bonus(len(distinct)),
+            "cluster": len(distinct),
+        }
+
+    # Percentile over COLLAPSED issuer totals - same units as the values
+    # being ranked against. Computing it over individual filings while
+    # ranking collapsed totals is a unit mismatch: it put a $157M issuer at
+    # #5 behind a $499k one.
+    day_values = sorted(g["total"] for g in grouped.values())
+    use_pct = len(day_values) >= MIN_SIGNALS_FOR_PERCENTILE
+
+    # ORDER BY SIZE, GATE BY PERCENTILE.
+    #
+    # Percentile is a *gate*, not a sort key. Sorting by percentile throws
+    # away magnitude: $157M and $33M are 4.7x apart but only ~5 percentile
+    # points apart, so role and cluster bonuses (0..60) swamp the money term
+    # and the order inverts. Measured: percentile-as-key put $2.1M above
+    # $53.9M.
+    #
+    # What "relative" actually needs to mean: how many items pass the gate
+    # adapts to the day, not which order they come out in. A 42-buy day
+    # promotes fewer than an 81-buy day; within either, biggest is first.
+    def rank_key(g):
+        n = g["total"]
         money = 0.0 if n <= 0 else 10.0 * _math.log10(n)
-        return -(money + score)
+        return -(money + g["score"])
 
-    ranked.sort(key=rank_key)
+    def worth_pushing(g):
+        """Two independent conditions, both required."""
+        if g["total"] < MIN_NOTIONAL_USD:
+            # Absolute floor: never promote the best of a genuinely dull day.
+            return False
+        if use_pct and _percentile_rank(day_values, g["total"]) < PUSH_PERCENTILE:
+            # Relative gate: on a rich day, mid-pack is not news.
+            return False
+        return True
 
-    # Collapse to ONE entry per issuer: five directors of the same company
-    # buying on the same day is one story ("FUL insiders bought"), not five.
-    # Without this, one clustered issuer eats the whole radar (seen with FUL).
-    grouped = {}
-    for score, s, cluster in ranked:
-        key = (s.get("ticker") or "").upper()
-        if key in grouped:
-            head = grouped[key]
-            head["also"].append(s)
-            head["total"] += (s.get("notional_usd") or 0)
-            head["distinct"].add(s.get("insider"))
-        else:
-            grouped[key] = {"s": s, "score": score, "cluster": cluster,
-                            "also": [], "total": (s.get("notional_usd") or 0),
-                            "distinct": {s.get("insider")}}
-    ordered = sorted(grouped.values(), key=lambda g: (-g["score"], -g["total"]))
-    ordered = [g for g in ordered if g["total"] >= MIN_NOTIONAL_USD]
+    ordered = sorted(grouped.values(), key=rank_key)
+    ordered = [g for g in ordered if worth_pushing(g)]
 
     L = []
     L.append("TODAY'S INSIDER RADAR")
     L.append("")
     L.append("Public SEC Form 4 filings. Selection and context only -")
     L.append("not investment advice, not a recommendation, no performance claim.")
+    L.append("")
+
+    if not ordered:
+        # The empty state is a feature, not a fallback. Publishing "best of a
+        # dull day" is how a filter becomes a noise source; saying nothing is
+        # the honest output, and it is also the signal that tells the reader
+        # the screen is working rather than broken.
+        L.append("Nothing worth watching today.")
+        L.append("")
+        L.append("  %d purchase filings seen; the largest was $%s, below the"
+                 % (len(day_values),
+                    "{:,.0f}".format(max(day_values) if day_values else 0)))
+        L.append("  $%s floor. Relative to a typical day this is a quiet one."
+                 % "{:,.0f}".format(MIN_NOTIONAL_USD))
+        L.append("")
+        return "\n".join(L)
+
+    # Tell the reader how the day compares, so "3 items" is not read as
+    # "3 items every day". Uses absolute tiers, which are stable and
+    # comparable across days even though ranking itself is relative.
+    L.append("  %d purchase filings today. Ranked within the day%s."
+             % (len(day_values),
+                "" if use_pct else " (small sample - absolute order)"))
     L.append("")
     for i, g in enumerate(ordered[:top], 1):
         s, score, cluster = g["s"], g["score"], g["cluster"]

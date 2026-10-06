@@ -194,6 +194,87 @@ def main():
     check("real ticker kept", R.is_listed("AAPL"))
     check("placeholder rejected", not R.is_listed("N/A"))
 
+    # 16. EMPTY STATE. A dull day must print nothing rather than promote the
+    # best of a bad lot. Measured driver: 2026-10-02 had 1502 filings but only
+    # 42 buys, and the largest was far below a normal day's top.
+    dull = [F.evaluate(rec(ticker="Q%d" % i, insider="D",
+                           is_director="true", transactions=[
+                               {"date": "2026-10-01", "code": "P",
+                                "shares": "100", "price": "150",
+                                "owned_after": "100"}]))
+            for i in range(20)]
+    dull = [x for x in dull if x]
+    out = R.render(dull, top=5)
+    check("dull day prints empty state", "Nothing worth watching" in out,
+          out.replace("\n", " | ")[:150])
+    check("empty state reports the largest seen", "15,000" in out,
+          out.replace("\n", " | ")[:150])
+    check("empty state emits no ranking", "#1" not in out)
+
+    # 17. RELATIVE ranking. Same dollar amount must rank differently depending
+    # on the day it sits in. $400k is the top of a $150-500k day but merely
+    # mid-pack on a day with several $10M+ buys.
+    def sig(tk, ins, price, shares="1000", title="", director="false"):
+        return F.evaluate(rec(ticker=tk, insider=ins, officer_title=title,
+                              is_director=director, transactions=[
+                                  {"date": "2026-10-01", "code": "P",
+                                   "shares": shares, "price": price,
+                                   "owned_after": shares}]))
+
+    # Quiet day: $400k is the biggest thing there is.
+    quiet = [x for x in (sig("SMALL", "A", "100"), sig("MID", "B", "400"),
+                         sig("ALSOMID", "C", "300")) if x]
+    out_q = R.render(quiet, top=3)
+    top_q = out_q.split("#1")[1].split("\n")[0].strip() if "#1" in out_q else ""
+    check("quiet day: largest ranks first", top_q == "MID", "got %r" % top_q)
+
+    # Loud day: the same $400k now competes with $10M+.
+    loud = [x for x in (sig("SMALL", "A", "100"), sig("MID", "B", "400"),
+                        sig("HUGE", "C", "10000"), sig("BIGGER", "D", "20000"))
+            if x]
+    out_l = R.render(loud, top=3)
+    top_l = out_l.split("#1")[1].split("\n")[0].strip() if "#1" in out_l else ""
+    check("loud day: $20M outranks $400k", top_l == "BIGGER",
+          "got %r" % top_l)
+
+    # 18. percentile helper: midpoint convention, so the largest value is
+    # below 1.0 (it is not "greater than itself") and ties share a rank.
+    check("percentile: largest is below 1.0",
+          abs(R._percentile_rank([1, 2, 3], 3) - (2.5 / 3.0)) < 1e-9,
+          str(R._percentile_rank([1, 2, 3], 3)))
+    check("percentile: bottom is not zero",
+          R._percentile_rank([1, 2, 3], 1) > 0.0)
+    check("percentile: ties share rank",
+          R._percentile_rank([5, 5, 5], 5) == 0.5)
+    check("percentile: empty is safe", R._percentile_rank([], 1) == 0.0)
+
+    # 19. BONUS CANNOT CROSS AN ORDER OF MAGNITUDE. Caps are load-bearing:
+    # a 3-insider $33M cluster beat a single $157M filing when cluster bonus
+    # was 12.7 against a 6.8-point money gap (2026-10-06, sample.json). One
+    # order of magnitude = 10 points, so every bonus is capped below 10.
+    check("role score capped below an order of magnitude",
+          R.role_score("chief executive officer", False, False)
+          <= R.ROLE_SCORE_MAX + 1e-9,
+          str(R.role_score("chief executive officer", False, False)))
+    check("cluster bonus capped below an order of magnitude",
+          R.CLUSTER_BONUS_MAX < 10.0, str(R.CLUSTER_BONUS_MAX))
+
+    # Ordering across a large multiple must follow money, not cluster:
+    # a single $100M buy outranks a 5-insider $10M cluster.
+    solo = sig("SOLO", "A", "100000.0", shares="1000")
+    many = [sig("MANY", "P%d" % i, "2000.0", shares="1000")
+            for i in range(5)]
+    both = [x for x in ([solo] + many) if x]
+    out_b = R.render(both, top=3)
+    top_b = out_b.split("#1")[1].split("\n")[0].strip() if "#1" in out_b else ""
+    check("money beats cluster across magnitudes", top_b == "SOLO",
+          "got %r" % top_b)
+
+    # 20. PERCENTILE IS A GATE, NOT A SORT KEY. Sorting by percentile
+    # flattened magnitude: $157M and $33M are 4.7x apart but ~5 percentile
+    # points apart, so bonuses swamped it and $2.1M ranked above $53.9M.
+    check("percentile used as gate constant", 0 < R.PUSH_PERCENTILE < 1)
+
     passed = sum(1 for _, ok, _ in RESULTS if ok)
     lines = ["# insider_filter self-test", ""]
     for name, ok, detail in RESULTS:

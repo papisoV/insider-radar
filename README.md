@@ -87,7 +87,7 @@ threshold.
 ```bash
 git clone https://github.com/papisoV/insider-radar.git
 cd insider-radar
-python test_insider_filter.py      # 38 assertions, no dependencies
+python test_insider_filter.py      # 51 assertions, no dependencies
 ```
 
 Python 3.8+. No `pip install` needed — standard library only.
@@ -123,22 +123,55 @@ fetch and parse; discovery and parsing are separate steps.
 | `render_radar.py` | Turn a signals JSON into the readable daily list. |
 | `run_20d.py` | Full-coverage multi-day run; source of the table above. |
 | `poll_hourly.py` | Poll recent days, write only newly seen filings. |
-| `test_insider_filter.py` | Self-test (38 assertions), no framework needed. |
+| `test_insider_filter.py` | Self-test (51 assertions), no framework needed. |
 
 ---
 
 ## How ranking works
 
-Money is the signal; job title only breaks ties.
+Two separate decisions: **what order**, and **whether to show it at all**.
 
-```
-rank = 10·log10(notional) + role_score + 15·(distinct_insiders − 1)
+```text
+order  = 10·log10(notional) + role + cluster_bonus
+gate   = notional >= $100k  AND  percentile_within_day >= 0.75
 ```
 
-An earlier version ranked on `role_score` with notional as a tiebreak. That put
-a **$101 purchase by a President at #2**, above a $199,696 purchase. The log
-scale keeps a $50M buy from flattening every smaller difference while still
-ordering them correctly.
+The order is absolute. The gate is relative. Mixing them up broke it twice:
+
+- *Percentile as the sort key* flattened magnitude — $157M and $33M are 4.7x
+  apart but only ~5 percentile points apart, so the tiebreaker terms swamped
+  the money term and a \$2.1M buy ranked above a \$53.9M buy.
+- *Uncapped bonuses* let a 3-insider \$33M cluster beat a single \$157M
+  filing, because the +12.7 bonus exceeded the 6.8-point money gap.
+
+So every bonus is capped **below 10**, which is what one order of magnitude of
+notional is worth. A bonus can reorder within a magnitude; it can never cross
+one. Role (CEO vs director) is compressed to ≤6 for the same reason — a raw
+role score of 40 let a \$2.1M CEO buy outrank a \$27.5M director buy.
+
+### The gate, not the count, adapts to the day
+
+That's what "relative" has to mean here: **how many items pass** changes with
+the day, not which order they come out in. A 42-buy day promotes fewer than an
+81-buy day. Within either, biggest is first.
+
+Below 15 signals the day is too small for a percentile to mean anything, so
+only the absolute floor applies.
+
+### Empty state
+
+If nothing clears both conditions, the output says so:
+
+```text
+Nothing worth watching today.
+
+  42 purchase filings seen; the largest was $84,200, below the
+  $100,000 floor. Relative to a typical day this is a quiet one.
+```
+
+Publishing "best of a dull day" is exactly how a filter becomes a noise
+source. Silence is the honest output — and it also tells the reader the screen
+is working rather than broken.
 
 ### What gets dropped, and why
 
