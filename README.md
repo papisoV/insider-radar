@@ -28,17 +28,37 @@ no cost.
 
 ## Measured, not estimated
 
-Full-coverage run over 12 consecutive trading days (2026-09-16 → 2026-10-01),
-5,370 filings fetched and parsed:
+Full-coverage run over 13 consecutive trading days (2026-09-16 → 2026-10-02),
+6,872 filings fetched and parsed:
 
 | Per trading day | mean | median | range |
 | --- | --- | --- | --- |
-| Form 4 filings | 447.5 | 399.5 | 297–758 |
-| Filings containing a purchase (`P`) | 52.6 | 44.5 | 36–81 |
-| Purchases ≥ $1M | 9.8 | 8.5 | 4–17 |
-| Purchases ≥ $250k and < $1M | 5.2 | 5.5 | 3–7 |
+| Form 4 filings | 528.6 | 408 | 297–1502 |
+| Filings containing a purchase (`P`) | 51.8 | 44 | 36–81 |
+| Purchases ≥ $1M | 9.6 | 8 | 4–17 |
+| Purchases ≥ $250k and < $1M | 5.0 | 5 | 2–7 |
 
-Pooled purchase rate: 11.8% (631 of 5,370).
+Pooled purchase rate: 9.8% (673 of 6,872).
+
+**The daily purchase rate is not stable** — it ranged from 2.8% to 20.3%
+across those 13 days:
+
+```
+09-16 13.0%   09-22 15.8%   09-28 11.8%
+09-17  9.5%   09-23 13.5%   09-29  9.1%
+09-18  8.7%   09-24 12.3%   09-30 20.3%
+09-21 11.5%   09-25 10.3%   10-01 10.3%
+                            10-02  2.8%   <- 1502 filings, only 42 buys
+```
+
+10-02 is real, not a collection artifact: re-queried independently, EFTS
+reports `total=1502` for that day, matching the run exactly. It is a
+quarter-boundary 10b5-1 routine-filing wave — mostly sales, which dilutes
+the purchase ratio.
+
+Practical consequence: **a fixed count is the wrong product shape.** "Top 5
+per day" means five interesting filings one day and five routine ones the
+next. Ranking and thresholds have to be relative to the day, not absolute.
 
 These numbers are why the tool filters at all: ~420 filings/day is not
 something a human reads. The filter is the product; the data is free.
