@@ -76,9 +76,15 @@ the purchase rate ranged **2.8% – 20.3%**, a 7x swing:
 sales, which dilutes the purchase ratio.
 
 **Consequence: a fixed daily count is the wrong shape.** "Top 5 every day"
-means five interesting filings one day and five routine ones the next. Ranking
-has to be relative to the day's own distribution, not an absolute dollar
-threshold.
+means five interesting filings one day and five routine ones the next. What
+adapts to the day has to be *how many items pass a gate*, not a hardcoded N.
+
+But a low-ratio day does **not** mean a low-quality one. Sampling 300 of
+10-02's filings turned up only 3 purchases — and one was a **\$5.56M buy by a
+VP at Pampa Energy**. A low purchase *rate* means few buys, not small ones:
+the 10b5-1 wave adds sales, it doesn't shrink the purchases that are there.
+So the gate has to be on absolute size, not on the day's ratio. Measured,
+because my first design assumed the opposite.
 
 ---
 
