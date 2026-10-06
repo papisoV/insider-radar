@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+smoke.json
+signals.json
+radar.txt
+seen.json
+poll-*.json
+.omc/
+
+filter_selftest.txt
