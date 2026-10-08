@@ -47,6 +47,15 @@ BLOCKBUSTER_USD = 1_000_000      # matches what the top-rated app alerts on
 NOTABLE_USD = 250_000
 MIN_NOTIONAL_USD = 25_000        # below this a "buy" is noise
 
+# Highest per-share price that can plausibly be a REAL per-share price.
+# Set 2026-10-08 after SLBT (Ching-Dong Wang, filed 2026-10-01) put its
+# AGGREGATE price into <transactionPricePerShare>: 4,545,306 shares @
+# "2272653", really US$2,272,653 for the whole transfer per its own footnote
+# F2. Multiplied naively -> $10.33 TRILLION, which alone produced the bogus
+# "$10.3T BLOCKBUSTER day" reading. Above this line the filing has a unit
+# error, so the leg is unvaluable rather than enormous.
+MAX_SANE_PRICE_PER_SHARE = 100_000.0
+
 # --- role weights ---------------------------------------------------------
 ROLE_TITLES = (
     ("chief executive", 40), ("ceo", 40),
@@ -107,8 +116,15 @@ def buy_transactions(rec):
         shares = _num(t.get("shares"))
         price = _num(t.get("price"))
         notional = None
+        reliable = True
         if shares is not None and price is not None and price > 0:
-            notional = shares * price
+            if flag_price_anomaly(price, shares):
+                # Unit error in the filing: the price field holds an aggregate.
+                # Keep the leg but refuse to value it - inventing a trillion
+                # dollar "purchase" is worse than admitting we cannot price it.
+                reliable = False
+            else:
+                notional = shares * price
         out.append({
             "date": t.get("date"),
             "shares": shares,
@@ -116,8 +132,24 @@ def buy_transactions(rec):
             "notional": notional,
             "owned_after": _num(t.get("owned_after")),
             "valuable": notional is not None,
+            "price_anomaly": not reliable,
         })
     return out
+
+
+def flag_price_anomaly(price, shares):
+    """True when `price` cannot be a per-share price.
+
+    Guards against filings that put the AGGREGATE price in the per-share field
+    (see MAX_SANE_PRICE_PER_SHARE). Missing/None inputs are unvaluable, not
+    anomalous - they are handled downstream, so do not flag them here.
+    """
+    if price is None or shares is None:
+        return False
+    try:
+        return float(price) > MAX_SANE_PRICE_PER_SHARE
+    except (TypeError, ValueError):
+        return False
 
 
 def evaluate(rec):
